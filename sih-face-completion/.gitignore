@@ -7,7 +7,3 @@ tests_output/
 *.ply
 *.mp4
 *.img
-venv/
-.venv/
-.vscode/
-output/
