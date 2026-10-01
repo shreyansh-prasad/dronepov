@@ -1,3 +1,4 @@
+# Existing repository patterns
 __pycache__/
 *.pyc
 tests_output/
@@ -11,3 +12,19 @@ venv/
 .venv/
 .vscode/
 output/
+
+# 3D Reconstruction Pipeline Artifacts & Binaries
+output*/
+tools/
+sample_data/
+scratch/
+*.log
+*.db
+*.db-shm
+*.db-wal
+*.glb
+*.las
+*.laz
+.venv*/
+.pytest_cache/
+PROJECT_CONTEXT.md

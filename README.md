@@ -213,6 +213,36 @@ Current work includes:
 The reconstruction stage is being improved for difficult single-pass footage and low-overlap situations.
 
 
+### Phase 4 & 5 — Image-Only 3D Reconstruction Pipeline (Dense MVS, Poisson Meshing, UV Texturing & Export)
+
+This module provides a complete, end-to-end 3D reconstruction pipeline that transforms ordered video keyframes directly into textured, self-contained 3D models (`.glb` / `.obj`), dense point clouds, and quality audit reports.
+
+#### Key Highlights & Workflow:
+- **Input**: Ordered drone video keyframes (`.png` / `.jpg`).
+- **Image-Only Mode (No GPS/Telemetry Required)**: Camera poses and trajectory are estimated entirely from imagery using sequential Structure-from-Motion (COLMAP). Flight telemetry, GPS coordinates, and GCPs are strictly optional and not required for image-only reconstruction.
+- **Dense MVS Reconstruction**: OpenMVS / PatchMatch pipeline generating dense 3D point representations.
+- **Surface Meshing**: Screened Poisson Surface Reconstruction with boundary density trimming and manifold hole filling.
+- **Photographic UV Texture Mapping**: UV unwrapping with `xatlas` and projective camera ray texture baking into a 2048×2048 texture atlas embedded directly in a self-contained GLB.
+- **Quality & Confidence Tagging**: Per-vertex reconstruction confidence computed across multi-view ray density and camera proximity.
+- **Deliverables Export**:
+  - `mesh_full.glb`: Self-contained 3D model with embedded photographic UV texture atlas.
+  - `mesh_decimated.glb`: Optimized lightweight mesh for web/real-time viewers.
+  - `mesh_confidence.glb`: Quality-tagged 3D mesh with per-vertex reconstruction confidence.
+  - `pointcloud_dense.ply` & `pointcloud_dense.las`: Cleaned dense point cloud.
+  - `summary.html` & `report.md`: Interactive visual summary and accuracy audit report.
+
+#### Quickstart: Running Image-Only Reconstruction
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Run reconstruction on extracted frames
+python run_pipeline.py --input_dir sample_data/frames --output_dir output_image_only
+```
+
+
+
 ## Key Innovation
 
 The innovation is combining several steps specifically for the constraints of a **single continuous drone flight**:

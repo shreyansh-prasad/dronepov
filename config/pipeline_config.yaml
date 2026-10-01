@@ -1,0 +1,100 @@
+# 3D Reconstruction Engine - Pipeline Configuration
+# Default mode: IMAGE-ONLY (no GPS, no GCP, no telemetry required)
+
+# Reconstruction mode: "image_only" (default) or "georeferenced"
+# image_only: camera poses estimated from images via SfM, no GPS/GCP/telemetry required
+# georeferenced: requires GPS/GCP for metric alignment (advanced)
+reconstruction_mode: "image_only"
+
+toolchain:
+  mode: "auto"                  # Options: "auto", "native", "wsl"
+  colmap_bin: "tools/bin/colmap.exe" # Path to native Windows COLMAP.bat, colmap.exe, or "colmap"
+  vocab_tree_path: "tools/vocab_tree/vocab_tree_faiss_flickr100K_words256K.bin"
+  openmvs_bin_dir: "tools/bin"  # Directory containing OpenMVS binaries (InterfaceCOLMAP, DensifyPointCloud, ReconstructMesh, TextureMesh)
+
+step01_validation:
+  min_frames: 3
+  max_frames: 2000
+  interpolate_timestamps: true
+  require_gps: false            # GPS is NOT required for image-only reconstruction
+  gps_altitude_offset_m: 0.0
+
+step02_sparse_sfm:
+  camera_model: "SIMPLE_RADIAL" # SIMPLE_RADIAL, PINHOLE, or OPENCV
+  single_camera: true
+  loop_detection: true          # Crucial for flight paths crossing over themselves
+  max_image_size: 1600          # SIFT CPU extraction resolution cap for high performance
+  min_num_matches: 15
+  early_gps_alignment: true     # Only applied if GPS data is available
+  conditioning_threshold: 0.05  # Ratio of min/max eigenvalue from camera trajectory PCA
+
+step03_dense_mvs:
+  backend: "mvs"                # Options: "mvs" (OpenMVS), "ai_depth" (fallback), "auto"
+  force_cpu_fallback: false     # Automatically detected if no CUDA is available
+  window_radius: 5
+  num_iterations: 5
+  geom_consistency: true
+  filter_min_ncc: 0.1
+  max_image_size: 2000
+  use_dynamic_masks: true       # Gate stereo matching with dynamic-object masks if present
+
+step04_ai_depth:
+  enabled: false                # DISABLED by default — AI monocular depth should NOT be the primary geometry source
+  model_type: "depth_anything_v2"
+  patch_weak_regions: false     # Disabled: do not fuse hallucinated depth into MVS geometry
+  nadir_angle_threshold_deg: 20.0
+  mvs_coverage_threshold: 0.4
+  scale_shift_ransac: true
+
+step05_cleanup:
+  nb_neighbors: 20
+  std_ratio: 1.5
+  radius_outlier_radius: 0.25
+  radius_outlier_min_neighbors: 5
+  estimate_normals: true
+  normal_search_radius: 0.15
+  normal_max_nn: 30
+
+step06_meshing:
+  method: "auto"                # "openmvs" -> "poisson" -> "alpha_shape"
+  poisson_depth: 9
+  poisson_scale: 1.1
+  alpha: 0.08
+
+step07_refinement:
+  remove_degenerate: true
+  remove_duplicated_faces: true
+  remove_duplicated_vertices: true
+  remove_non_manifold: true
+  fill_holes: true
+  max_hole_vertices: 40
+  laplacian_smoothing_iterations: 2
+
+step08_texturing:
+  method: "auto"                # "openmvs" -> "xatlas_projector" -> "vertex_color"
+  texture_resolution: 2048
+  atlas_padding: 4
+  angle_weight: 1.0
+  distance_weight: 0.5
+
+step09_confidence:
+  mvs_base_confidence: 0.90
+  ai_depth_max_ceiling: 0.45    # Hard ceiling for AI-depth sourced points
+  triangulation_angle_weight: 0.35
+  observation_count_weight: 0.35
+  density_weight: 0.30
+
+step10_georeferencing:
+  enabled: false                # DISABLED by default in image-only mode
+  default_crs: "AUTO_UTM"      # Auto-detect UTM zone from GPS coordinates
+  use_gcp: true
+  use_rtk_ppk: true
+  min_gps_points: 3
+  max_acceptable_rms_m: 5.0    # Flag warning if RMS residual exceeds this threshold
+
+step11_export:
+  decimation_factor: 0.08      # ~8% face count for mesh_viewer.glb
+  export_laz: true
+  export_obj: true
+  export_glb: true
+  max_reprojection_error_warn_px: 1.5
