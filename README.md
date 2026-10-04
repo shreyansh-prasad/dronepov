@@ -1,8 +1,8 @@
-#Single-Pass Drone Video to Georeferenced 3D Reconstruction
+# Single-Pass Drone Video to Georeferenced 3D Reconstruction
 
-##Smart India Hackathon (SIH) Project
+## Smart India Hackathon (SIH) Project
 
-###Overview
+### Overview
 
 This project converts a *single continuous drone/UAV video flight* into a *georeferenced and metrically useful 3D model* of the surveyed area.
 
@@ -10,7 +10,7 @@ This project converts a *single continuous drone/UAV video flight* into a *geore
 Traditional photogrammetry often requires multiple drone passes and high image overlap. Our approach extracts the most useful information from one flight, reducing flight time and operational effort while producing a useful 3D representation.
 
 
-###Applications
+### Applications
 
 
 •Rapid disaster assessment
@@ -30,7 +30,7 @@ Traditional photogrammetry often requires multiple drone passes and high image o
 •Digital-twin generation
 
 
-##Problem
+## Problem
 
 A detailed drone 3D model normally requires multiple passes, many overlapping images, careful flight planning and significant processing. In disasters, emergencies and inspections, repeated flights may not be practical.
 
@@ -38,7 +38,7 @@ A detailed drone 3D model normally requires multiple passes, many overlapping im
 The system therefore targets reconstruction from *one moving UAV video*, while handling motion blur, compression, changing illumination, shadows, GPS noise, occlusions, moving objects and limited viewing angles.
 
 
-##Proposed Solution
+## Proposed Solution
 
 Drone Video + GPS + Flight Metadata
                 |
@@ -76,9 +76,9 @@ Drone Video + GPS + Flight Metadata
                 v
      Measurement & Export
 
-##1. Input Data
+## 1. Input Data
 
-##Required
+## Required
 
 
 •Drone video
@@ -88,14 +88,14 @@ Drone Video + GPS + Flight Metadata
 •Flight metadata
 
 
-##Optional
+## Optional
 
 
 •IMU data
 
 •Barometric altitude
 
-•Camera intrinsic parameters
+•Camera intrinsic para meters
 
 •RTK/PPK positioning data
 
@@ -103,7 +103,7 @@ Drone Video + GPS + Flight Metadata
 Optional sensor information improves accuracy but is not mandatory for the basic pipeline.
 
 
-##2. Intelligent Frame Selection
+## 2. Intelligent Frame Selection
 
 A video contains many unnecessary frames such as blurry, dark, nearly identical or low-feature frames. The system evaluates each candidate using:
 
@@ -125,7 +125,7 @@ A video contains many unnecessary frames such as blurry, dark, nearly identical 
 Only useful keyframes are passed to reconstruction.
 
 
-##2.1 Mathematical Formulation of Intelligent Frame Selection
+## 2.1 Mathematical Formulation of Intelligent Frame Selection
 
 The intelligent frame-selection stage is formulated as a two-step optimization pipeline:
 
@@ -144,7 +144,7 @@ Submodular / Lazy-Greedy Selection
       v
 Final Keyframes + Masks + Confidence Metadata
 
-##2.1.1 Dynamic Blur Calibration
+## 2.1.1 Dynamic Blur Calibration
 
 Instead of relying on a fixed blur threshold, the system calibrates the threshold from a representative sample of the input video:
 
@@ -181,7 +181,7 @@ $S_{\mathrm{sample}}$	Sampled frames used for threshold calibration
 A lower Laplacian variance indicates a less sharp frame.
 
 
-##2.1.2 Adaptive Acceptance / Salvage Rule
+## 2.1.2 Adaptive Acceptance / Salvage Rule
 
 A low-quality frame is not automatically discarded. If a blurry or clipped frame provides coverage of an otherwise underrepresented region, it can be retained with a Low-Confidence flag.
 
@@ -215,7 +215,7 @@ $$
 This allows the system to preserve frames that may be imperfect visually but are important because they cover otherwise missing areas.
 
 
-##2.1.3 Candidate Frame Set
+## 2.1.3 Candidate Frame Set
 
 After quality gating, the surviving frames form the candidate set:
 
@@ -249,7 +249,7 @@ $$
 Here, $\mathcal{S}$ represents the set of frames already selected.
 
 
-##2.1.5 Marginal Area Coverage Gain
+## 2.1.5 Marginal Area Coverage Gain
 
 The additional coverage contributed by a candidate frame is:
 
@@ -287,7 +287,7 @@ $\Delta\mathcal{C}$	New coverage obtained by adding $f_i$
 The formulation encourages spatial diversity: frames that introduce new scene regions receive a higher marginal gain, while frames that largely duplicate existing coverage receive a smaller gain.
 
 
-##2.1.6 Mission Value
+## 2.1.6 Mission Value
 
 The mission-specific value of each frame is defined as:
 
@@ -318,7 +318,7 @@ $w_1,w_2,w_3$	Tunable mission-specific weights
 This makes the selection process aware of both geometric coverage and mission relevance.
 
 
-##2.1.7 Lazy-Greedy Selection
+## 2.1.7 Lazy-Greedy Selection
 
 The final keyframe-selection problem is expressed as:
 
@@ -350,7 +350,7 @@ $$
 At each iteration, the algorithm prioritizes candidates with the highest estimated marginal usefulness and continues until the frame budget $K$ is reached or no remaining candidate provides sufficient additional value.
 
 
-##2.1.8 Complete Mathematical Pipeline
+## 2.1.8 Complete Mathematical Pipeline
 
 The complete frame-selection process can be summarized as:
 
@@ -404,7 +404,7 @@ $$
 The resulting set contains the selected keyframes together with their associated masks, coverage information and quality/confidence metadata.
 
 
-##3. Moving Object Removal
+## 3. Moving Object Removal
 
 People, cars, animals and other moving objects can create incorrect 3D points. Object detection/segmentation and tracking identify dynamic objects and create masks over those regions instead of discarding the whole frame.
 
@@ -426,7 +426,7 @@ Masked Frame
 Typical classes include people, cars, trucks, buses, motorcycles, bicycles and animals.
 
 
-##4. Camera Movement and Pose
+## 4. Camera Movement and Pose
 
 The drone continuously moves while recording. Visual information between frames is used to estimate camera movement and relative camera poses. GPS and optional IMU information can constrain or improve the trajectory.
 
@@ -434,7 +434,7 @@ The drone continuously moves while recording. Visual information between frames 
 The reconstruction is first created in a local coordinate system and can then be aligned to geographic coordinates.
 
 
-##5. 3D Reconstruction
+## 5. 3D Reconstruction
 
 The cleaned keyframes are processed using a Structure-from-Motion / Multi-View Stereo pipeline.
 
@@ -455,7 +455,7 @@ Outputs include:
 The current prototype integrates COLMAP for camera pose estimation and sparse reconstruction, with dense reconstruction and meshing planned as later stages.
 
 
-##6. GPS and Georeferencing
+## 6. GPS and Georeferencing
 
 GPS is used as geographic information rather than as a direct replacement for visual reconstruction.
 
@@ -473,7 +473,7 @@ The system can synchronize GPS with video timestamps, detect unrealistic jumps, 
 Survey-grade accuracy should only be claimed when appropriate positioning data and independent validation support it.
 
 
-##7. Measurements
+## 7. Measurements
 
 The georeferenced model can support:
 
@@ -495,7 +495,7 @@ The georeferenced model can support:
 Measurement confidence should be reported rather than assuming survey-grade accuracy.
 
 
-##8. Web-Based 3D Viewer
+## 8. Web-Based 3D Viewer
 
 A web interface can allow users to:
 
@@ -546,7 +546,7 @@ Sensors	GPS / IMU / RTK / PPK
 
 Current Prototype
 
-###Phase 1 — Intelligent Frame Selection
+### Phase 1 — Intelligent Frame Selection
 
 Implemented:
 
@@ -565,7 +565,7 @@ Implemented:
 •Processing statistics
 
 
-###Phase 2 — Dynamic Object Detection
+### Phase 2 — Dynamic Object Detection
 
 Implemented:
 
@@ -582,7 +582,7 @@ Implemented:
 •Detection previews and statistics
 
 
-###Phase 3 — Sparse 3D Reconstruction
+### Phase 3 — Sparse 3D Reconstruction
 
 Current work includes:
 
@@ -605,7 +605,7 @@ The reconstruction stage is being improved for difficult single-pass footage and
 
 
 
-##Key Innovation
+## Key Innovation
 
 The innovation is combining several steps specifically for the constraints of a single continuous drone flight:
 
@@ -622,7 +622,7 @@ The innovation is combining several steps specifically for the constraints of a 
 •*Measurement-ready output* — support basic geographic and dimensional analysis.
 
 
-##Advantages
+## Advantages
 
 
 •Requires only one continuous drone pass
@@ -642,7 +642,7 @@ The innovation is combining several steps specifically for the constraints of a 
 •Modular design allows individual components to be improved independently
 
 
-##Limitations
+## Limitations
 
 •Single-pass reconstruction has fundamental limitations. Results depend on camera quality, video resolution, motion blur, scene texture, camera movement, visual overlap, lighting, occlusion, GPS quality and viewing angles.
 
@@ -653,7 +653,7 @@ The innovation is combining several steps specifically for the constraints of a 
 •The system is therefore aimed at rapid mapping and situational awareness. Survey-grade applications require suitable high-accuracy positioning and independent validation.
 
 
-##Future Improvements
+## Future Improvements
 
 
 •More robust single-pass image matching
@@ -689,7 +689,7 @@ The innovation is combining several steps specifically for the constraints of a 
 •Interactive web-based 3D visualization
 
 
-##Project Goal
+## Project Goal
 
 The long-term goal is to turn one drone flight into actionable 3D geographic information, reducing repeated flights while providing a fast and automated reconstruction workflow.
 
