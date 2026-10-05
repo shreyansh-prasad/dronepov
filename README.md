@@ -5,7 +5,7 @@
 ### Overview
 This project converts a **single continuous drone/UAV video flight** into a **georeferenced and metrically useful 3D model** of the surveyed area.
 
-Traditional photogrammetry often requires multiple drone passes and high image overlap. Our approach extracts the most useful information from one flight, reducing flight time and operational effort while producing a useful 3D representation.
+Traditional photogrammetry often requires multiple drone passes and high image overlap. Our approach extracts the most useful information from one flight, reducing flight time and operational effort.
 
 ### Applications
 - Rapid disaster assessment
@@ -18,9 +18,9 @@ Traditional photogrammetry often requires multiple drone passes and high image o
 - Digital-twin generation
 
 ## Problem
-A detailed drone 3D model normally requires multiple passes, many overlapping images, careful flight planning and significant processing. In disasters, emergencies and inspections, repeated flights may not be practical.
+A detailed drone 3D model normally requires multiple passes, many overlapping images, careful flight planning and significant processing. In disasters, emergencies and inspections, repeated flights may not be possible.
 
-The system therefore targets reconstruction from **one moving UAV video**, while handling motion blur, compression, changing illumination, shadows, GPS noise, occlusions, moving objects and limited viewing angles.
+The system therefore targets reconstruction from **one moving UAV video**, while handling motion blur, compression, changing illumination, shadows, GPS noise, occlusions, moving objects and limited visual overlap.
 
 ## Proposed Solution
 
@@ -37,29 +37,29 @@ Drone Video + GPS + Flight Metadata
          Keyframe Selection
                 |
                 v
-   Dynamic Object Detection
-       & Object Tracking
+    Dynamic Object Detection
+        & Object Tracking
                 |
                 v
-       Dynamic Object Masking
+        Dynamic Object Masking
                 |
                 v
-      Camera Pose Estimation
+       Camera Pose Estimation
                 |
                 v
-       3D Reconstruction
+        3D Reconstruction
                 |
                 v
-     GPS/IMU Georeferencing
+      GPS/IMU Georeferencing
                 |
                 v
-      Point Cloud / 3D Mesh
+       Point Cloud / 3D Mesh
                 |
                 v
-       Web-Based 3D Viewer
+        Web-Based 3D Viewer
                 |
                 v
-     Measurement & Export
+      Measurement & Export
 ```
 
 ## 1. Input Data
@@ -92,7 +92,7 @@ Only useful keyframes are passed to reconstruction.
 
 ## 3. Moving Object Removal
 
-People, cars, animals and other moving objects can create incorrect 3D points. Object detection/segmentation and tracking identify dynamic objects and create masks over those regions instead of discarding the whole frame.
+People, cars, animals and other moving objects can create incorrect 3D points. Object detection/segmentation and tracking identify dynamic objects and create masks over those regions instead of discarding frames entirely.
 
 ```
 Original Frame
@@ -114,7 +114,7 @@ Typical classes include people, cars, trucks, buses, motorcycles, bicycles and a
 
 ## 4. Camera Movement and Pose
 
-The drone continuously moves while recording. Visual information between frames is used to estimate camera movement and relative camera poses. GPS and optional IMU information can constrain or improve the trajectory.
+The drone continuously moves while recording. Visual information between frames is used to estimate camera movement and relative camera poses. GPS and optional IMU information can constrain or improve these estimates.
 
 The reconstruction is first created in a local coordinate system and can then be aligned to geographic coordinates.
 
@@ -180,6 +180,190 @@ Measurement confidence should be reported rather than assuming survey-grade accu
 | 3D Visualization | Three.js |
 | Sensors | GPS / IMU / RTK / PPK |
 
+## Drone Video Frame Selection Pipeline - Detailed Technical Documentation
+
+### Overview of Frame Selection Strategy
+
+The frame selection pipeline is a critical component that intelligently extracts keyframes from continuous drone video footage. This process reduces computational load while preserving essential visual information for high-quality 3D reconstruction.
+
+### Frame Quality Assessment Metrics
+
+The system evaluates frames based on multiple quality dimensions, including blur, exposure, texture, temporal consistency, and scene overlap. Sharpness is usually quantified by gradient- or Laplacian-based metrics.
+
+#### 1. Variance of Laplacian
+
+The Laplacian-based sharpness metric estimates the degree of edge content in a frame:
+
+```text
+S_lap(F_i) = Var(∇² F_i)
+```
+
+where:
+- F_i is the i-th frame
+- ∇² F_i is the Laplacian of the frame
+- Var(·) is the variance across all pixel values
+
+A higher value indicates stronger edge contrast and sharper image content.
+
+#### 2. Tenengrad Method
+
+The Tenengrad metric uses image gradients computed with Sobel operators:
+
+```text
+S_ten(F_i) = (1 / (M × N)) × Σx=1..M Σy=1..N sqrt(Gx(x, y)^2 + Gy(x, y)^2)
+```
+
+where:
+- M and N are image dimensions
+- Gx(x, y) and Gy(x, y) are the horizontal and vertical gradient responses at pixel (x, y)
+
+This metric effectively measures high-frequency content, which is strongly correlated with sharpness.
+
+#### 3. Brenner Gradient
+
+The Brenner metric measures the difference between neighboring pixels along the vertical direction:
+
+```text
+S_bren(F_i) = Σx=1..M Σy=1..N-2 [F_i(x, y) - F_i(x, y + 2)]^2
+```
+
+where F_i(x, y) is the grayscale intensity at pixel position (x, y). Large differences indicate well-defined edges and improved sharpness.
+
+#### 4. Combined Frame Quality Score
+
+The selected keyframes are often ranked using a weighted combination of these metrics:
+
+```text
+Score(F_i) = w1 × S_lap(F_i) + w2 × S_ten(F_i) + w3 × S_bren(F_i) + w4 × S_texture(F_i) - λ × P_blur(F_i)
+```
+
+where:
+- w1, w2, w3, w4 are weighting coefficients
+- S_texture measures feature richness and local contrast
+- P_blur is a penalty for motion blur or low-frequency content
+- λ controls the strength of the blur penalty
+
+### Frame Selection Algorithm
+
+The intelligent frame selection follows a multi-stage approach:
+
+1. Initial filtering to remove obviously poor frames based on sharpness and brightness
+2. Feature extraction for candidate frames
+3. Similarity analysis to reject near-duplicate frames
+4. Temporal sampling to maintain useful spacing between selected frames
+5. Overlap validation to ensure sufficient scene coverage for reconstruction
+
+### Dynamic Object Detection and Masking
+
+#### Object Detection Workflow
+- YOLO-based detection during frame processing
+- Multi-scale object detection for different spatial scales
+- Confidence thresholding to minimize false positives
+- Class-specific analysis for vehicles, people, and other moving objects
+
+#### Masking Strategy
+- Precise boundary delineation of detected objects
+- Morphological operations for mask refinement
+- Dilation and erosion routines for temporal consistency
+- Weighted masking to preserve useful scene structure while removing dynamic content
+
+#### Temporal Tracking
+- Frame-to-frame tracking using ByteTrack or BoT-SORT
+- Trajectory smoothing across consecutive frames
+- Occlusion handling and tracked-object persistence
+- Mask propagation across time for cleaner reconstruction
+
+### GPS and IMU Integration
+
+#### GPS Trajectory Processing
+- Timestamp synchronization with video frames
+- Noise filtering and outlier removal
+- Trajectory smoothing for realistic motion estimation
+- Uncertainty estimation for georeferencing
+
+#### IMU Data Fusion
+- Gyroscope-based rotation estimation
+- Accelerometer processing for motion parameters
+- Sensor synchronization and time alignment
+- Drift correction using GPS anchors
+
+#### Coordinate System Transformation
+- Local coordinate system initialization
+- GPS-to-local transformation
+- Georeferencing through ground control points
+- Projection and datum handling for geospatial output
+
+### Output and Deliverables
+
+#### Primary Outputs
+- Keyframe sequence with metadata
+- Feature maps and descriptors
+- Camera pose estimates
+- Sparse 3D point clouds
+- Dynamic object masks
+
+#### Quality Metrics
+- Reconstruction confidence scores
+- Feature matching statistics
+- Geometric consistency measures
+- Coverage area assessment
+
+#### Export Formats
+- Keyframe images (PNG/JPEG)
+- Feature files
+- Point cloud data (PLY/LAS)
+- Camera parameter matrices
+- Transformation matrices
+- Metadata JSON files
+
+### Performance Optimization
+
+#### Computational Efficiency
+- GPU acceleration for feature extraction
+- Parallel frame processing
+- Adaptive resolution for previews
+- Memory-efficient data structures
+
+#### Scalability
+- Streaming processing for large videos
+- Tile-based processing for large areas
+- Incremental reconstruction support
+- Distributed processing capabilities
+
+### Quality Assurance and Validation
+
+#### Reconstruction Validation
+- Epipolar geometry consistency checks
+- Triangulation angle assessment
+- Reprojection error analysis
+- Photometric consistency validation
+
+#### Confidence Metrics
+- Per-feature confidence scores
+- Per-point confidence levels
+- Coverage completeness assessment
+- Geometric stability indices
+
+### Best Practices and Guidelines
+
+#### Optimal Flight Parameters
+- Flight altitude: 30–150 meters for balanced resolution and coverage
+- Speed: 5–15 m/s to preserve image stability
+- Overlap: minimum 60% forward overlap for reconstruction robustness
+- Coverage planning: maximize feature-rich, textured areas
+
+#### Data Acquisition Tips
+- Fly during optimal lighting conditions
+- Avoid extreme weather and poor visibility
+- Maintain consistent altitude when possible
+- Plan multiple passes for complex terrain if needed
+
+#### Processing Recommendations
+- Start with conservative quality thresholds
+- Validate intermediate outputs frequently
+- Use reference imagery when available
+- Document processing parameters for reproducibility
+
 ## Current Prototype
 
 ### Phase 1 — Intelligent Frame Selection
@@ -215,11 +399,11 @@ The reconstruction stage is being improved for difficult single-pass footage and
 
 ### Phase 4 & 5 — Image-Only 3D Reconstruction Pipeline (Dense MVS, Poisson Meshing, UV Texturing & Export)
 
-This module provides a complete, end-to-end 3D reconstruction pipeline that transforms ordered video keyframes directly into textured, self-contained 3D models (`.glb` / `.obj`), dense point clouds, and quality audit reports.
+This module provides a complete, end-to-end 3D reconstruction pipeline that transforms ordered video keyframes directly into textured, self-contained 3D models (`.glb` / `.obj`), dense point clouds, and detailed reports.
 
 #### Key Highlights & Workflow:
 - **Input**: Ordered drone video keyframes (`.png` / `.jpg`).
-- **Image-Only Mode (No GPS/Telemetry Required)**: Camera poses and trajectory are estimated entirely from imagery using sequential Structure-from-Motion (COLMAP). Flight telemetry, GPS coordinates, and GCPs are strictly optional and not required for image-only reconstruction.
+- **Image-Only Mode (No GPS/Telemetry Required)**: Camera poses and trajectory are estimated entirely from imagery using sequential Structure-from-Motion (COLMAP). Flight telemetry, GPS coordinates, and IMU data are optional enhancements.
 - **Dense MVS Reconstruction**: OpenMVS / PatchMatch pipeline generating dense 3D point representations.
 - **Surface Meshing**: Screened Poisson Surface Reconstruction with boundary density trimming and manifold hole filling.
 - **Photographic UV Texture Mapping**: UV unwrapping with `xatlas` and projective camera ray texture baking into a 2048×2048 texture atlas embedded directly in a self-contained GLB.
@@ -266,7 +450,7 @@ The innovation is combining several steps specifically for the constraints of a 
 
 ## Limitations
 
-Single-pass reconstruction has fundamental limitations. Results depend on camera quality, video resolution, motion blur, scene texture, camera movement, visual overlap, lighting, occlusion, GPS quality and viewing angles.
+Single-pass reconstruction has fundamental limitations. Results depend on camera quality, video resolution, motion blur, scene texture, camera movement, visual overlap, lighting, occlusion, GPS quality and other factors.
 
 Very uniform surfaces, severe blur, insufficient overlap or areas never viewed by the camera may not reconstruct reliably.
 
